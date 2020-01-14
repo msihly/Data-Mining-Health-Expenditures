@@ -27,6 +27,23 @@ NonZeroExpIP = HE[HE$EXPENDIP > 0,]
 plotFactors(NonZeroExpIP, "EXPENDIP", "AGE", list("INCOME", "GENDER", "MARISTAT", "REGION", "factor(FAMSIZE)"))
 # Single data-point massively skewing dataset; identify via diagnostic plots
 
+lm.fit = lm(EXPENDIP ~ ., data = HE)
+par(mfrow = c(2, 2))
+plot(lm.fit)
+
+# Observation #733 causing extreme problems based on diagnostic plots
+HE[733,]
+
+# Remove outlier
+HE = HE[-733,]
+
+# Re-plot factors
+NonZeroExpIP = HE[HE$EXPENDIP > 0,]
+
+plotFactors(NonZeroExpIP, "AGE", "EXPENDIP", list("INCOME", "GENDER", "MARISTAT", "REGION", "factor(FAMSIZE)"))
+plotFactors(NonZeroExpIP, "AGE", "log10(EXPENDIP)", list("INCOME", "GENDER", "MARISTAT", "REGION", "factor(FAMSIZE)"))
+plotFactors(NonZeroExpIP, "log10(AGE)", "EXPENDIP", list("INCOME", "GENDER", "MARISTAT", "REGION", "factor(FAMSIZE)"))
+
 # BEGIN - Multi-linear regression of EXPENDIP without EXPENDOP
   lm.fit = lm(EXPENDIP ~ . -EXPENDOP, data = HE)
   summary(lm.fit)
@@ -36,41 +53,6 @@ plotFactors(NonZeroExpIP, "EXPENDIP", "AGE", list("INCOME", "GENDER", "MARISTAT"
 
   # Remove EDUC because of perfect collinearity with HIGHSCH and COLLEGE
   lm.fit = update(lm.fit, ~ . -EDUC)
-  summary(lm.fit)
-
-  # # BEGIN - Backwards selection
-  #   lm.fit = update(lm.fit, ~ . -INDUSCLASS)
-  #   summary(lm.fit)
-  #   lm.fit = update(lm.fit, ~ . -USC)
-  #   summary(lm.fit)
-  #   # Possible issues with RACE - Bin as binary on WHITE
-  #   lm.fit = update(lm.fit, ~ . -RACE)
-  #   summary(lm.fit)
-  #   # Possibly issues with MARISTAT - Bin as binary on MARRIED
-  #   lm.fit = update(lm.fit, ~ . -MARISTAT)
-  #   summary(lm.fit)
-  #   lm.fit = update(lm.fit, ~ . -ANYLIMIT)
-  #   summary(lm.fit)
-  #   lm.fit = update(lm.fit, ~ . -MANAGEDCARE)
-  #   summary(lm.fit)
-  #   # Removing INCOME, FAMSIZE, INSURE, and MNHPOOR each decrease significance
-  # # END - Backwards selection
-
-  par(mfrow = c(2, 2))
-  plot(lm.fit)
-
-  # Observation #733 causing extreme problems based on diagnostic plots
-  HE[733,]
-
-  # Remove outlier
-  HE = HE[-733,]
-
-  # Re-plot factors
-  NonZeroExpIP = HE[HE$EXPENDIP > 0,]
-  plotFactors(NonZeroExpIP, "AGE", "EXPENDIP", list("INCOME", "GENDER", "MARISTAT", "REGION", "factor(FAMSIZE)"))
-
-  # Re-fit model
-  lm.fit = lm(EXPENDIP ~ . -EXPENDOP -EDUC, data = HE)
   summary(lm.fit)
 
   # BEGIN - Backwards selection
@@ -95,7 +77,7 @@ plotFactors(NonZeroExpIP, "EXPENDIP", "AGE", list("INCOME", "GENDER", "MARISTAT"
     # Removing ANYLIMIT, COLLEGE, MANAGEDCARE, MARISTAT, PHSTAT, INCOME, or REGION lower ADJR2 at this point
   # END
 
-  # Optimal model reached with backwards selection:
+  # Optimal model reached with manual backwards selection:
   lm.fit = lm(EXPENDIP ~ . -EXPENDOP -EDUC -HIGHSCH -INSURE -FAMSIZE -INDUSCLASS -UNEMPLOY -USC -RACE -MNHPOOR, data = HE)
   summary(lm.fit)
 
@@ -112,6 +94,8 @@ plotFactors(NonZeroExpIP, "EXPENDIP", "AGE", list("INCOME", "GENDER", "MARISTAT"
   lm.fit = lm(EXPENDIP ~ . -EXPENDOP -EDUC -HIGHSCH -INSURE -FAMSIZE -INDUSCLASS -UNEMPLOY -USC -RACE -MNHPOOR +MARISTAT:INCOME +PHSTAT:INCOME, data = HE)
   summary(lm.fit)
 
+  plot(glm.fit)
+
   # BEGIN - Validation testing
     # Estimated training RMSE:
     sqrt(mean(lm.fit$residuals^2))
@@ -126,24 +110,22 @@ plotFactors(NonZeroExpIP, "EXPENDIP", "AGE", list("INCOME", "GENDER", "MARISTAT"
     library(boot)
     glm.fit = glm(EXPENDIP ~ . -EXPENDOP -EDUC -HIGHSCH -INSURE -FAMSIZE -INDUSCLASS -UNEMPLOY -USC -RACE -MNHPOOR +MARISTAT:INCOME +PHSTAT:INCOME, data = HE)
     cv.err = cv.glm(HE, glm.fit)
-    # Test RMSE:
     sqrt(cv.err$delta)
     # Test RMSE = 2699.467 (default), 2699.416 (bias corrected) in USD
 
     # K-Fold CV at K = 5
     cv.err = cv.glm(HE, glm.fit, K = 5)
-    # Test RMSE:
     sqrt(cv.err$delta)
-    # Test RMSE = 2677.66 (default), 2657.80 (bias corrected) in USD
+    # Test RMSE = 2677.66 (default), 2657.80 (bias corrected) in USD [NO SEED SET]
 
     # K-Fold CV at K = 10
     cv.err = cv.glm(HE, glm.fit, K = 10)
-    # Test RMSE:
     sqrt(cv.err$delta)
-    # Test RMSE = 2711.632 (default), 2700.470 (bias corrected) in USD
+    # Test RMSE = 2711.632 (default), 2700.470 (bias corrected) in USD [NO SEED SET]
 
-    # RMSE lowest in K-Fold (5) at 2657.80, which (I believe) suggests model bias as LOOCV or K-Fold (10)
-    # should be better
+    # RMSE lowest in K-Fold (5) at 2657.80 on original run with no seed set. After repeating with different seeds,
+    # RMSE varies by siginificant amounts for K-Fold CV. Therefore, LOOCV will be used for comparison only to
+    # achieve the most accurate and consistent results.
   # END
 # END
 
@@ -189,8 +171,8 @@ plotFactors(NonZeroExpIP, "EXPENDIP", "AGE", list("INCOME", "GENDER", "MARISTAT"
 
   # Optimal model achieved through two-term interaction stepAIC in both backward and both directions:
   lm.fit = lm(EXPENDIP ~ AGE + GENDER + COUNTIP + COUNTOP + INCOME + PHSTAT + AGE:GENDER + AGE:COUNTIP +
-             AGE:COUNTOP + GENDER:COUNTIP + COUNTIP:COUNTOP + COUNTIP:INCOME + COUNTIP:PHSTAT +
-             COUNTOP:INCOME + COUNTOP:PHSTAT + INCOME:PHSTAT, data = HE)
+                  AGE:COUNTOP + GENDER:COUNTIP + COUNTIP:COUNTOP + COUNTIP:INCOME + COUNTIP:PHSTAT +
+                  COUNTOP:INCOME + COUNTOP:PHSTAT + INCOME:PHSTAT, data = HE)
   summary(lm.fit)
 
   # BEGIN - Validation testing
@@ -199,6 +181,7 @@ plotFactors(NonZeroExpIP, "EXPENDIP", "AGE", list("INCOME", "GENDER", "MARISTAT"
     # RMSE = 2169.016 in USD
 
     # VIF for collinearity:
+    library(car)
     vif(lm.fit)
     # 3 variables above cut-off of 5, which suggests multicollinearity; however, one of these variables is an
     # interaction term of AGE:COUNTOP, and interaction terms on a highly significant predictor will naturally
@@ -208,35 +191,22 @@ plotFactors(NonZeroExpIP, "EXPENDIP", "AGE", list("INCOME", "GENDER", "MARISTAT"
     # are logically correlate regardless of the model fit. Therefore, there are no issues of multicollinearity.
 
     # LOOCV
+    library(boot)
     glm.fit = glm(EXPENDIP ~ AGE + GENDER + COUNTIP + COUNTOP + INCOME + PHSTAT + AGE:GENDER + AGE:COUNTIP +
                     AGE:COUNTOP + GENDER:COUNTIP + COUNTIP:COUNTOP + COUNTIP:INCOME + COUNTIP:PHSTAT +
                     COUNTOP:INCOME + COUNTOP:PHSTAT + INCOME:PHSTAT, data = HE)
     cv.err = cv.glm(HE, glm.fit)
-    # Test RMSE:
     sqrt(cv.err$delta)
     # Test RMSE = 2594.489 (default), 2594.370 (bias corrected) in USD
-
-    # K-Fold CV at K = 5
-    cv.err = cv.glm(HE, glm.fit, K = 5)
-    # Test RMSE:
-    sqrt(cv.err$delta)
-    # Test RMSE = 2672.215 (default), 2608.341 (bias corrected) in USD
-
-    # K-Fold CV at K = 10
-    cv.err = cv.glm(HE, glm.fit, K = 10)
-    # Test RMSE:
-    sqrt(cv.err$delta)
-    # Test RMSE = 2653.474 (default), 2624.831 (bias corrected) in USD
-
-    # RMSE lowest in LOOCV at 2594.370 (lower than manual model best RMSE of 2657.80)
+    # RMSE ower than manual model RMSE of 2657.80
   # END
 
   # Fit model with three-term interactions
   lm.fit = lm(EXPENDIP ~ (AGE + GENDER + COUNTIP + COUNTOP + INCOME + PHSTAT)^3, data = HE)
-  step = stepAIC(fit, direction = "both")
+  step = stepAIC(lm.fit, direction = "both")
   step$anova
 
-  sum = summary(fit)
+  sum = summary(lm.fit)
   sum$adj.r.squared
   sum$fstatistic
   sum$sigma
@@ -246,16 +216,60 @@ plotFactors(NonZeroExpIP, "EXPENDIP", "AGE", list("INCOME", "GENDER", "MARISTAT"
 
   # Optimal model achieved through three-term interaction stepAIC on both directions:
   lm.fit = lm(EXPENDIP ~ AGE + GENDER + COUNTIP + COUNTOP + INCOME + PHSTAT +
-             AGE:GENDER + AGE:COUNTIP + AGE:COUNTOP + AGE:INCOME + AGE:PHSTAT +
-             GENDER:COUNTIP + GENDER:COUNTOP + GENDER:INCOME + GENDER:PHSTAT +
-             COUNTIP:COUNTOP + COUNTIP:INCOME + COUNTIP:PHSTAT + COUNTOP:INCOME +
-             COUNTOP:PHSTAT + INCOME:PHSTAT + AGE:GENDER:COUNTIP + AGE:GENDER:COUNTOP +
-             AGE:COUNTIP:COUNTOP + AGE:COUNTIP:INCOME + AGE:COUNTIP:PHSTAT +
-             AGE:COUNTOP:INCOME + AGE:COUNTOP:PHSTAT + GENDER:COUNTIP:COUNTOP +
-             GENDER:COUNTIP:INCOME + GENDER:COUNTIP:PHSTAT + GENDER:COUNTOP:INCOME +
-             GENDER:COUNTOP:PHSTAT + COUNTIP:COUNTOP:INCOME + COUNTIP:COUNTOP:PHSTAT +
-             COUNTIP:INCOME:PHSTAT + COUNTOP:INCOME:PHSTAT)
+                  AGE:GENDER + AGE:COUNTIP + AGE:COUNTOP + AGE:INCOME + AGE:PHSTAT +
+                  GENDER:COUNTIP + GENDER:COUNTOP + GENDER:INCOME + GENDER:PHSTAT +
+                  COUNTIP:COUNTOP + COUNTIP:INCOME + COUNTIP:PHSTAT + COUNTOP:INCOME +
+                  COUNTOP:PHSTAT + INCOME:PHSTAT + AGE:GENDER:COUNTIP + AGE:GENDER:COUNTOP +
+                  AGE:COUNTIP:COUNTOP + AGE:COUNTIP:INCOME + AGE:COUNTIP:PHSTAT +
+                  AGE:COUNTOP:INCOME + AGE:COUNTOP:PHSTAT + GENDER:COUNTIP:COUNTOP +
+                  GENDER:COUNTIP:INCOME + GENDER:COUNTIP:PHSTAT + GENDER:COUNTOP:INCOME +
+                  GENDER:COUNTOP:PHSTAT + COUNTIP:COUNTOP:INCOME + COUNTIP:COUNTOP:PHSTAT +
+                  COUNTIP:INCOME:PHSTAT + COUNTOP:INCOME:PHSTAT)
   summary(lm.fit)
+
+  # BEGIN - Validation testing
+    # Estimated training RMSE:
+    sqrt(mean(lm.fit$residuals^2))
+    # RMSE = 1832.066 in USD
+
+    # Collinearity not tested because of three-term interaction terms; will cause excessive amount of false
+    # positives for multicollinearity. Additionally, VIF cannot be used on the model as there are aliased
+    # coefficients in the model.
+
+    # LOOCV
+    library(boot)
+    glm.fit = glm(EXPENDIP ~ AGE + GENDER + COUNTIP + COUNTOP + INCOME + PHSTAT +
+                    AGE:GENDER + AGE:COUNTIP + AGE:COUNTOP + AGE:INCOME + AGE:PHSTAT +
+                    GENDER:COUNTIP + GENDER:COUNTOP + GENDER:INCOME + GENDER:PHSTAT +
+                    COUNTIP:COUNTOP + COUNTIP:INCOME + COUNTIP:PHSTAT + COUNTOP:INCOME +
+                    COUNTOP:PHSTAT + INCOME:PHSTAT + AGE:GENDER:COUNTIP + AGE:GENDER:COUNTOP +
+                    AGE:COUNTIP:COUNTOP + AGE:COUNTIP:INCOME + AGE:COUNTIP:PHSTAT +
+                    AGE:COUNTOP:INCOME + AGE:COUNTOP:PHSTAT + GENDER:COUNTIP:COUNTOP +
+                    GENDER:COUNTIP:INCOME + GENDER:COUNTIP:PHSTAT + GENDER:COUNTOP:INCOME +
+                    GENDER:COUNTOP:PHSTAT + COUNTIP:COUNTOP:INCOME + COUNTIP:COUNTOP:PHSTAT +
+                    COUNTIP:INCOME:PHSTAT + COUNTOP:INCOME:PHSTAT)
+    cv.err = cv.glm(HE, glm.fit)
+    # Warning messages of rank defficiency indicate same issue of perfect correlation mentioned above with VIF.
+    alias(glm.fit)
+    # COUNTIP:INCOMENPOOR:PHSTATVGOO perfectly correlated with
+
+    sqrt(cv.err$delta)
+    # Test RMSE = 14551.675 (default), 3665.691 (bias corrected) in USD
+    # RMSE worse than both previous models; indicates, along with previous warnings and errors, that the model
+    # is overfit to the training data and cannot feasibly make predictions.
+
+    # Remove problematic interaction-term to see if the model improves enough to use
+    glm.fit = update(glm.fit, ~ . -COUNTIP:INCOME:PHSTAT)
+    alias(glm.fit)
+    # Perfect correlation issues cleared from alis results
+    cv.err = cv.glm(HE, glm.fit)
+    sqrt(cv.err$delta)
+    # Test RMSE = 14515.979 (default), 3605.982 (bias corrected) in USD
+    # RMSE marginally improves after removing COUNTIP:INCOME:PHSTAT interaction term; however, model still highly
+    # inaccurate compared to optimal models achieved through manual stepwise and stepAIC.
+  # END
+
+  # Conclusion: Optimal model achieved above via stepAIC with two-term interactions.
 # END
 
 # BEGIN - Failed attempt at using regsubsets of "leaps" package for finding optimal regression model
