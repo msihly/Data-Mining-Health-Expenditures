@@ -22,6 +22,7 @@ str(HE)
 
 plotFactors = function(f.data, f.x, f.y, f.factors, f.type = "scatter", f.size = 2, f.save = F) {
   if (!require(ggplot2)) { return("Could not load 'ggplot2' package") }
+  if (!dir.exists("Images")) { dir.create("Images") }
   for (f.x_i in f.x) {
     plot = ggplot(f.data, aes_string(x = f.x_i, y = f.y))
 
@@ -713,3 +714,69 @@ plotFactors(f.data = NonZeroExpOP, f.x = factors, f.y = "log10(EXPENDOP)", f.fac
 #   is in-line with the findings for the EXPENDOP version of the model. Therefore, despite having a
 #   higher RMSE than the model excluding COUNTOP and COUNTIP, the EXPENDOP model with only EXPENDIP
 #   removed as a predictor seems to be the most accurate.
+
+detach(HE)
+HE1 = HE
+attach(HE1)
+HE1$EXPENDIP[HE1$EXPENDIP > 0] = "Yes"
+HE1$EXPENDIP[HE1$EXPENDIP == 0] = "No"
+HE1$EXPENDIP = factor(HE1$EXPENDIP)
+HE1$EXPENDOP[HE1$EXPENDOP > 0] = "Yes"
+HE1$EXPENDOP[HE1$EXPENDOP == 0] = "No"
+HE1$EXPENDOP = factor(HE1$EXPENDOP)
+
+set.seed(1)
+indexes = sample(1:nrow(HE1), 0.7 * nrow(HE1))
+trainHE1 = HE1[indexes,]
+testHE1 = HE1[-indexes,]
+table(trainHE1["EXPENDIP"])
+table(testHE1["EXPENDIP"])
+
+logitStats = function(f.model, f.test, f.y) {
+  prob = predict(logit.fit, newdata = f.test, type = "response")
+  pred = ifelse(prob > 0.5, "Yes", "No")
+  conmtx = table(pred, f.y)
+  print("Accuracy rate:" + mean(pred == testHE1$EXPENDIP))
+  print("Precision rate:" + conmtx["Yes", "Yes"] / conmtx[,"Yes"])
+  print("Recall rate:" + mean(pred == testHE1$EXPENDIP))
+}
+
+# Including COUNTIP causes the model to fail as it is perfectly correlated to whether or not
+# EXPENDIP is 'Yes' or 'No'.
+logit.fit = glm(EXPENDIP ~ . -COUNTIP -COLLEGE -HIGHSCH, data = trainHE1, family = binomial)
+summary(logit.fit)
+prob = predict(logit.fit, newdata = testHE1, type = "response")
+pred = ifelse(prob > 0.5, "Yes", "No")
+table(pred, testHE1$EXPENDIP)
+mean(pred == testHE1$EXPENDIP)
+
+logit.fit = stepAIC(logit.fit, direction = "both", trace = F)
+logit.fit$anova
+# Optimal model achieved via stepAIC with AIC reduced from 631.45 to 605.24:
+logit.fit = glm(EXPENDIP ~ AGE + GENDER + INSURE + UNEMPLOY + COUNTOP + EXPENDOP +
+                  REGION + PHSTAT + INCOME, data = trainHE1, family = binomial)
+summary(logit.fit)
+prob = predict(logit.fit, newdata = testHE1, type = "response")
+pred = ifelse(prob > 0.5, "Yes", "No")
+table(pred, testHE1$EXPENDIP)
+mean(pred == testHE1$EXPENDIP)
+
+logit.fit = glm(EXPENDIP ~ (AGE + GENDER + INSURE + UNEMPLOY + COUNTOP + EXPENDOP +
+                  REGION + PHSTAT + INCOME)^2, data = trainHE1, family = binomial)
+logit.fit = stepAIC(logit.fit, direction = "both", trace = F)
+logit.fit$anova
+
+# Optimal model achieved via stepAIC with AIC reduced from 605.24 to :
+logit.fit = glm(EXPENDIP ~ AGE + GENDER + INSURE + UNEMPLOY + COUNTOP + EXPENDOP +
+                  REGION + PHSTAT + INCOME + AGE:GENDER + AGE:INCOME + GENDER:INSURE +
+                  COUNTOP:REGION + COUNTOP:PHSTAT + UNEMPLOY:REGION, data = trainHE1, family = binomial)
+summary(logit.fit)
+prob = predict(logit.fit, newdata = testHE1, type = "response")
+pred = ifelse(prob > 0.5, "Yes", "No")
+table(pred, testHE1$EXPENDIP)
+mean(pred == testHE1$EXPENDIP)
+
+conmtx = table(pred, f.y)
+print("Accuracy rate:" + mean(pred == testHE1$EXPENDIP))
+print("Precision rate:" + conmtx["Yes", "Yes"] / conmtx[,"Yes"])
+print("Recall rate:" + mean(pred == testHE1$EXPENDIP));
