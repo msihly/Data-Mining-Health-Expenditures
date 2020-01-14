@@ -1,3 +1,15 @@
+#####################################################################################################
+#       All contents of this document were created by Mohamed Sihly for the sole purpose of         #
+#       Team 1's term project in CIS / STA 3920 (PMWA) - Fall 2019. The dataset used in this        #
+#         project is a modification of the 'MEPS Health Expenditures' dataset hosted at:            #
+# https://instruction.bus.wisc.edu/jfrees/jfreesbooks/Regression%20Modeling/BookWebDec2010/data.html#
+#                                                                                                   #
+#                     The modified dataset is hosted by Mohamed Sihly at:                           #
+#         https://www.dropbox.com/s/job9pmmngdppkn0/healthexpend%28modified%29.csv?dl=0             #
+#                                                                                                   #
+#                             Last revision date: December 9, 2019                                  #
+#####################################################################################################
+
 packageLoad = function(packages) {
   installed = installed.packages()[, "Package"]
   for (p in packages) {
@@ -37,7 +49,7 @@ plotFactors = function(f.data, f.x, f.y, f.factors, f.type = "scatter", f.size =
       else if (f.type == "smooth-point") { print(plot + geom_point(aes_string(color = f.f_i), size = f.size) +
                                              geom_smooth(aes_string(color = f.f_i, fill = f.f_i), size = f.size)) }
       if (f.save == T) {
-        folder = paste(ifelse(typeof(f.y) == "character", f.y, "y"), "vs.", ifelse(typeof(f.x_i) == "character", f.x_i, "y"))
+        folder = paste(ifelse(typeof(f.y) == "character", f.y, "y"), "vs.", ifelse(typeof(f.x_i) == "character", f.x_i, "y"), "-", f.type)
         if (!dir.exists(file.path("Images/", folder))) { dir.create(file.path("Images/", folder)) }
         ggsave(paste(f.f_i, ".jpg", sep = ""), path = paste("Images/", folder, sep = ""))
       }
@@ -992,7 +1004,9 @@ plotFactors(f.data = NonZeroExpOP, f.x = factors, f.y = "log10(EXPENDOP)", f.fac
 
 logit.fit = glm(EXPENDIP ~ . -COUNTIP -COLLEGE -HIGHSCH, data = trainHE1, family = binomial)
 preds = plogis(predict(logit.fit, newdata = testHE1))
+factors = list("INCOME", "GENDER", "MARISTAT", "REGION", "factor(FAMSIZE)")
 plotFactors(f.data = testHE1, f.x = list("AGE", "FAMSIZE"), f.y = preds, f.factors = factors, f.type = "smooth", f.size = 1, f.save = T)
+plotFactors(f.data = testHE1, f.x = list("AGE", "FAMSIZE"), f.y = preds, f.factors = factors, f.type = "box", f.size = 1, f.save = T)
 
 #####################################################################################################
 
