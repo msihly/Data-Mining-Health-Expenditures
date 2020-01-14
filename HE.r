@@ -778,7 +778,7 @@ plotFactors(f.data = NonZeroExpOP, f.x = factors, f.y = "log10(EXPENDOP)", f.fac
   logitStats = function(f.model, f.test, f.y, f.prob = 0.5) {
     prob = predict(logit.fit, newdata = f.test, type = "response")
     pred = ifelse(prob > f.prob, "Yes", "No")
-    conmtx = table(pred, f.y, dnn = NULL)
+    conmtx = table(f.y, pred, dnn = NULL)
     precision = conmtx[2, 2] / sum(conmtx[, 2:2])
     recall = conmtx[2, 2] / sum(conmtx[2:2, ])
 
@@ -802,9 +802,9 @@ plotFactors(f.data = NonZeroExpOP, f.x = factors, f.y = "log10(EXPENDOP)", f.fac
   summary(logit.fit)
   # AIC baseline of 631.45
   logitStats(logit.fit, testHE1, testHE1$EXPENDIP)
-  # Baseline accuracy rate is remarkably high, but the precision rate is extremely low, and the
-  # recall rate is lower than acceptable amounts. The model appears to be very good at predicting
-  # the true zero-cost patients, but the precision rate, which is almost the exact compliment of
+  # Baseline accuracy rate is remarkably high, but the recall rate is extremely low, and the
+  # precision rate is lower than acceptable amounts. The model appears to be very good at predicting
+  # the true zero-cost patients, but the recall rate, which is almost the exact compliment of
   # the accuracy rate, indicates that the model is just predicting most of the observations as
   # zero-cost without a proper basis for the prediction due to the skewedness of zero-cost to
   # non-zero observations in the dataset.
@@ -847,7 +847,7 @@ plotFactors(f.data = NonZeroExpOP, f.x = factors, f.y = "log10(EXPENDOP)", f.fac
   summary(logit.fit)
   # Aliased interaction terms (107 singularities) causing model to fail. AIC more than doubled to 1434.
   logitStats(logit.fit, testHE1, testHE1$EXPENDIP)
-  # Worst model so far; false negatives tremendously increased.
+  # Worst model so far; false positives tremendously increased.
 
   alias(logit.fit)
   # INDUSCLASS responsible for most of the singularities; instead of repeatedly sorting through summary()
@@ -865,7 +865,7 @@ plotFactors(f.data = NonZeroExpOP, f.x = factors, f.y = "log10(EXPENDOP)", f.fac
   # the practical implications of this dataset.
   logitStats(logit.fit, testHE1, testHE1$EXPENDIP)
   # Surprisingly, the accuracy of the overall model has only slightly decreased compared to previous models
-  # with the biggest impact being a sizable decrease on the recall rate.
+  # with the biggest impact being a sizable decrease on the precision rate.
 
   # Despite the previous failures above, an attempt at using stepAIC was made again with the interaction
   # terms on the base set of predictors instead of the optimal model achieved via stepAIC. The intent was
@@ -884,7 +884,7 @@ plotFactors(f.data = NonZeroExpOP, f.x = factors, f.y = "log10(EXPENDOP)", f.fac
   summary(logit.fit)
   # AIC has increased from the baseline of 631.45 to 712.02
   logitStats(logit.fit, testHE1, testHE1$EXPENDIP)
-  # The accuracy rate is indentical to the base model, and the recall rate is only 0.0375 less. The precision
+  # The accuracy rate is indentical to the base model, and the precision rate is only 0.0375 less. The recall
   # rate has decreased from 0.14 to 0.08, and the F1 score has decreased considerably from 0.212121 to
   # 0.13333. While the differences are actually rather insignifcant in the confusion matrix, the model is
   # still worse than the baseline model. However, these results are far better than expected and are actually
@@ -922,7 +922,7 @@ plotFactors(f.data = NonZeroExpOP, f.x = factors, f.y = "log10(EXPENDOP)", f.fac
   # Interestingly, AGE and INCOME have been removed from the model, which are known to be the strongest
   # predictors aside from the COUNTs and EXPENDs.
 
-  # Adding AGE and INCOME back into the model converts two false positives to true positives, but the overall
+  # Adding AGE and INCOME back into the model converts two false negatives to true positives, but the overall
   # model accuracy is practically identical due to the large numbers of false negatives and positives. A much
   # larger decrease is needed in either one of the false predictions.
   logit.fit = glm(EXPENDOP ~ AGE + INCOME + ANYLIMIT + GENDER + USC + MANAGEDCARE + FAMSIZE +
@@ -932,12 +932,12 @@ plotFactors(f.data = NonZeroExpOP, f.x = factors, f.y = "log10(EXPENDOP)", f.fac
   logit.fit = glm(EXPENDOP ~ log10(AGE) + INCOME + ANYLIMIT + GENDER + USC + MANAGEDCARE + FAMSIZE +
                     COUNTIP + EDUC + MARISTAT + PHSTAT + INDUSCLASS, data = trainHE1, family = binomial)
   logitStats(logit.fit, testHE1, testHE1$EXPENDOP)
-  # Taking the log of AGE converts 2 false negatives to true negatives. Much larger improvements needed.
+  # Taking the log of AGE converts 2 false positives to true negatives. Much larger improvements needed.
 
   logit.fit = glm(EXPENDOP ~ log10(AGE) + MNHPOOR + INCOME + ANYLIMIT + GENDER + USC + MANAGEDCARE + FAMSIZE +
                     COUNTIP + EDUC + MARISTAT + PHSTAT + INDUSCLASS, data = trainHE1, family = binomial)
   logitStats(logit.fit, testHE1, testHE1$EXPENDOP)
-  # Adding MNHPOOR converts one false negative to true negative
+  # Adding MNHPOOR converts one false positive to true negative
 
   # Due to the statistically insignificant benefits provided by adding AGE, log10(AGE), MNHPOOR, or INCOME
   # to the model, they have been removed to find the best predictive model using the least amount of
