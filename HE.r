@@ -6,14 +6,17 @@ packageLoad = function(packages) {
   }
 }
 
-packageLoad(c("ggplot2", "car", "boot", "MASS"))
+packageLoad(c("ggplot2", "ggResidpanel", "car", "boot", "MASS"))
 
-HE = read.csv("HealthExpend (Modified).csv", header = T, na.strings = "?")
+HE = read.csv("HealthExpend (Modified).csv")
 attach(HE)
 
 summary(HE)
 # Determine variable types
 str(HE)
+# Convert GENDER from 0 and 1 to MALE and FEMALE for readability throughout, especially in plots
+HE$GENDER = ifelse(HE$GENDER == 0, "MALE", "FEMALE")
+
 # Coerce categorical variables to factors
 factors = c("ANYLIMIT", "COLLEGE", "HIGHSCH", "GENDER", "MNHPOOR", "INSURE", "USC", "UNEMPLOY", "MANAGEDCARE")
 HE[factors] = lapply(HE[factors], factor)
@@ -29,8 +32,12 @@ plotFactors = function(f.data, f.x, f.y, f.factors, f.type = "scatter", f.size =
     for (f.f_i in f.factors) {
       if (f.type == "scatter") { print(plot + geom_point(aes_string(color = f.f_i), size = f.size)) }
       else if (f.type == "box") { print(plot + geom_boxplot(aes_string(color = f.f_i), size = f.size)) }
+      else if (f.type == "line") { print(plot + geom_line(aes_string(color = f.f_i), size = f.size)) }
+      else if (f.type == "smooth") { print(plot + geom_smooth(aes_string(color = f.f_i, fill = f.f_i), size = f.size)) }
+      else if (f.type == "smooth-point") { print(plot + geom_point(aes_string(color = f.f_i), size = f.size) +
+                                             geom_smooth(aes_string(color = f.f_i, fill = f.f_i), size = f.size)) }
       if (f.save == T) {
-        folder = paste(f.y, "vs.", f.x_i)
+        folder = paste(ifelse(typeof(f.y) == "character", f.y, "y"), "vs.", ifelse(typeof(f.x_i) == "character", f.x_i, "y"))
         if (!dir.exists(file.path("Images/", folder))) { dir.create(file.path("Images/", folder)) }
         ggsave(paste(f.f_i, ".jpg", sep = ""), path = paste("Images/", folder, sep = ""))
       }
@@ -61,6 +68,8 @@ plotFactors(f.data = NonZeroExpIP, f.x = list("AGE"), f.y = "EXPENDIP", f.factor
 plotFactors(f.data = NonZeroExpIP, f.x = list("AGE"), f.y = "log10(EXPENDIP)", f.factors = factors, f.save = T)
 plotFactors(f.data = NonZeroExpIP, f.x = factors, f.y = "EXPENDIP", f.factors = factors, f.type = "box",
             f.size = 0.6, f.save = T)
+
+#####################################################################################################
 
 # BEGIN - Multi-linear regression of EXPENDIP without EXPENDOP
   lm.fit = lm(EXPENDIP ~ . -EXPENDOP, data = HE)
@@ -112,7 +121,7 @@ plotFactors(f.data = NonZeroExpIP, f.x = factors, f.y = "EXPENDIP", f.factors = 
   lm.fit = lm(EXPENDIP ~ . -EXPENDOP -EDUC -HIGHSCH -INSURE -FAMSIZE -INDUSCLASS -UNEMPLOY -USC -RACE -MNHPOOR +MARISTAT:INCOME +PHSTAT:INCOME, data = HE)
   summary(lm.fit)
 
-  plot(glm.fit)
+  resid_panel(lm.fit, plots = "all")
 
   # BEGIN - Validation testing
     # Estimated training RMSE:
@@ -200,6 +209,8 @@ plotFactors(f.data = NonZeroExpIP, f.x = factors, f.y = "EXPENDIP", f.factors = 
     alias(lm.fit)
     # Singularities have been removed as confirmed by summary and aliases.
 
+    resid_panel(lm.fit, plots = "all")
+
     # BEGIN - Validation testing
       # Estimated training RMSE:
       sqrt(mean(lm.fit$residuals^2))
@@ -262,6 +273,8 @@ plotFactors(f.data = NonZeroExpIP, f.x = factors, f.y = "EXPENDIP", f.factors = 
     # ADJR2 = 0.6501, RSE = 2197 on 1949 DF, F-stat = 76.75 on 49 and 1949 DF. Signifcant improvement in
     # model after fitting with two-term interactions.
 
+    resid_panel(lm.fit, plots = "all")
+
     # BEGIN - Validation testing
       # Estimated training RMSE:
       sqrt(mean(lm.fit$residuals^2))
@@ -295,6 +308,8 @@ plotFactors(f.data = NonZeroExpIP, f.x = factors, f.y = "EXPENDIP", f.factors = 
     # ADJR2 significantly increased over two-term interaction model. However, model includes too many interaction
     # terms to feasibly interpret. RSE has also decreased, but so have the degrees of freedom. Model may also be
     # overfitted and F-Stat has decreased (as well as the DF).
+
+    resid_panel(lm.fit, plots = "all")
 
     # BEGIN - Validation testing
       # Estimated training RMSE:
@@ -363,6 +378,8 @@ plotFactors(f.data = NonZeroExpIP, f.x = factors, f.y = "EXPENDIP", f.factors = 
   # ADJR2 = 0.09041, RSE = 3542 on 1985 DF, F-stat = 16.28 on 13 and 1985 DF. No practical improvement in
   # model after fitting with two-term interactions.
 
+  resid_panel(lm.fit, plots = "all")
+
   # BEGIN - Validation testing
     # Estimated training RMSE:
     sqrt(mean(lm.fit$residuals^2))
@@ -404,6 +421,8 @@ plotFactors(f.data = NonZeroExpIP, f.x = factors, f.y = "EXPENDIP", f.factors = 
   summary(lm.fit)
   # ADJR2 = 0.5641, RSE = 2452 on 1979 DF, F-stat = 137.1 on 19 and 1979 DF. Decent improvement in model
   # after fitting with two-term interactions.
+
+  resid_panel(lm.fit, plots = "all")
 
   # BEGIN - Validation testing
     # Estimated training RMSE:
@@ -452,6 +471,8 @@ plotFactors(f.data = NonZeroExpIP, f.x = factors, f.y = "EXPENDIP", f.factors = 
   # model after fitting with two-term interactions. However, results practically identical to optimal
   # model achieved with EXPENDOP excluded.
 
+  resid_panel(lm.fit, plots = "all")
+
   # BEGIN - Validation testing
     # Estimated training RMSE:
     sqrt(mean(lm.fit$residuals^2))
@@ -474,6 +495,8 @@ plotFactors(f.data = NonZeroExpIP, f.x = factors, f.y = "EXPENDIP", f.factors = 
   # Conclusion: Model offers sizable improvement over previously achieved optimum RMSE of 2594.370 for
   # EXPENDIP without EXPENDOP.
 # END
+
+#####################################################################################################
 
 factors = list("INCOME", "GENDER", "MARISTAT", "REGION", "factor(FAMSIZE)")
 NonZeroExpOP = HE[HE$EXPENDOP > 0,]
@@ -516,6 +539,8 @@ plotFactors(f.data = NonZeroExpOP, f.x = factors, f.y = "log10(EXPENDOP)", f.fac
   # model after fitting with two-term interactions. However, there is a singularity on RACEWHITE:PHSTATPOOR,
   # which will be removed after evaluating the model with it in.
 
+  resid_panel(lm.fit, plots = "all")
+
   # BEGIN - Validation testing
     # Estimated training RMSE:
     sqrt(mean(lm.fit$residuals^2))
@@ -540,6 +565,8 @@ plotFactors(f.data = NonZeroExpOP, f.x = factors, f.y = "log10(EXPENDOP)", f.fac
   summary(lm.fit)
   # ADJR2 = 0.6318, RSE = 1979 on 1908 DF, F-stat = 39.09 on 90 and 1908 DF. Model slightly worsens after
   # removing RACE:PHSTAT to account for the singularity.
+
+  resid_panel(lm.fit, plots = "all")
 
   # BEGIN - Validation testing
     # Estimated training RMSE:
@@ -589,6 +616,8 @@ plotFactors(f.data = NonZeroExpOP, f.x = factors, f.y = "log10(EXPENDOP)", f.fac
   summary(lm.fit)
   # ADJR2 = 0.6238, RSE = 2001 on 1910 DF, F-stat = 38.65 on 88 and 1910 DF.
 
+  resid_panel(lm.fit, plots = "all")
+
   # BEGIN - Validation testing
     # Estimated training RMSE:
     sqrt(mean(lm.fit$residuals^2))
@@ -612,6 +641,8 @@ plotFactors(f.data = NonZeroExpOP, f.x = factors, f.y = "log10(EXPENDOP)", f.fac
   summary(lm.fit)
   # ADJR2 = 0.6094, RSE = 2039 on 1925 DF, F-stat = 43.69 on 73 and 1925 DF. Model slightly worsens after
   # removing RACE:PHSTAT to account for the singularity.
+
+  resid_panel(lm.fit, plots = "all")
 
   # BEGIN - Validation testing
     # Estimated training RMSE:
@@ -659,6 +690,8 @@ plotFactors(f.data = NonZeroExpOP, f.x = factors, f.y = "log10(EXPENDOP)", f.fac
   summary(lm.fit)
   # ADJR2 = 0.2246, RSE = 2872 on 1921 DF, F-stat = 8.516 on 77 and 1921 DF.
 
+  resid_panel(lm.fit, plots = "all")
+
   # BEGIN - Validation testing
     # Estimated training RMSE:
     sqrt(mean(lm.fit$residuals^2))
@@ -680,6 +713,8 @@ plotFactors(f.data = NonZeroExpOP, f.x = factors, f.y = "log10(EXPENDOP)", f.fac
   summary(lm.fit)
   # ADJR2 = 0.2136, RSE = 2893 on 1936 DF, F-stat = 9.752 on 62 and 1936 DF. Model slightly worsens after
   # removing RACE:PHSTAT to account for the singularity.
+
+  resid_panel(lm.fit, plots = "all")
 
   # BEGIN - Validation testing
     # Estimated training RMSE:
@@ -715,68 +750,335 @@ plotFactors(f.data = NonZeroExpOP, f.x = factors, f.y = "log10(EXPENDOP)", f.fac
 #   higher RMSE than the model excluding COUNTOP and COUNTIP, the EXPENDOP model with only EXPENDIP
 #   removed as a predictor seems to be the most accurate.
 
-detach(HE)
-HE1 = HE
-attach(HE1)
-HE1$EXPENDIP[HE1$EXPENDIP > 0] = "Yes"
-HE1$EXPENDIP[HE1$EXPENDIP == 0] = "No"
-HE1$EXPENDIP = factor(HE1$EXPENDIP)
-HE1$EXPENDOP[HE1$EXPENDOP > 0] = "Yes"
-HE1$EXPENDOP[HE1$EXPENDOP == 0] = "No"
-HE1$EXPENDOP = factor(HE1$EXPENDOP)
+#####################################################################################################
 
-set.seed(1)
-indexes = sample(1:nrow(HE1), 0.7 * nrow(HE1))
-trainHE1 = HE1[indexes,]
-testHE1 = HE1[-indexes,]
-table(trainHE1["EXPENDIP"])
-table(testHE1["EXPENDIP"])
+# BEGIN - Logistic regression setup
+  # Detach HE so that the modified copy of it doesn't mask the same variables
+  detach(HE)
+  HE1 = HE
+  attach(HE1)
 
-logitStats = function(f.model, f.test, f.y) {
-  prob = predict(logit.fit, newdata = f.test, type = "response")
-  pred = ifelse(prob > 0.5, "Yes", "No")
-  conmtx = table(pred, f.y)
-  print("Accuracy rate:" + mean(pred == testHE1$EXPENDIP))
-  print("Precision rate:" + conmtx["Yes", "Yes"] / conmtx[,"Yes"])
-  print("Recall rate:" + mean(pred == testHE1$EXPENDIP))
-}
+  # Convert EXPENDIP and EXPENDOP from continuous to categorical with non-zero expenditures coded as
+  # 'Yes' and zero expenditures coded as 'No'. Update type to factor afterwards.
+  HE1$EXPENDIP = ifelse(HE1$EXPENDIP > 0, "Yes", "No")
+  HE1$EXPENDOP = ifelse(HE1$EXPENDOP > 0, "Yes", "No")
+  factors = c("EXPENDIP", "EXPENDOP")
+  HE1[factors] = lapply(HE1[factors], factor)
+  str(HE1)
 
-# Including COUNTIP causes the model to fail as it is perfectly correlated to whether or not
-# EXPENDIP is 'Yes' or 'No'.
+  # Create training and test sets at a 70:30 ratio, respectively
+  set.seed(1)
+  indexes = sample(1:nrow(HE1), 0.7 * nrow(HE1))
+  trainHE1 = HE1[indexes,]
+  testHE1 = HE1[-indexes,]
+  # Verify the distribution of non-zero to zero expenditures is balanced between training and test sets
+  table(trainHE1["EXPENDIP"])
+  table(testHE1["EXPENDIP"])
+
+  logitStats = function(f.model, f.test, f.y, f.prob = 0.5) {
+    prob = predict(logit.fit, newdata = f.test, type = "response")
+    pred = ifelse(prob > f.prob, "Yes", "No")
+    conmtx = table(pred, f.y, dnn = NULL)
+    precision = conmtx[2, 2] / sum(conmtx[, 2:2])
+    recall = conmtx[2, 2] / sum(conmtx[2:2, ])
+
+    print(conmtx)
+    writeLines(paste("Accuracy rate:\t", mean(pred == f.y)))
+    writeLines(paste("Precision rate:\t", precision))
+    writeLines(paste("Recall rate:\t", recall))
+    writeLines(paste("F1 Score:\t", 2 * (precision * recall) / (precision + recall)))
+  }
+# END
+
+#####################################################################################################
+
+# BEGIN - Logistic regression on EXPENDIP
+  # Including COUNTIP causes the model to seemingly fail due to perfect correlations; however,
+  # this is a logical outcome as all patients with a non-zero EXPENDIP will also have a non-zero
+  # COUNTIP, and vice-versa. In essence, EXPENDIP and COUNTIP are interchangeable in this model.
+  # The point of this prediction model is to determine the optimal set of predictors that give
+  # accurate probabilities of patients falling into either the zero or non-zero cost categories.
+  logit.fit = glm(EXPENDIP ~ . -COUNTIP -COLLEGE -HIGHSCH, data = trainHE1, family = binomial)
+  summary(logit.fit)
+  # AIC baseline of 631.45
+  logitStats(logit.fit, testHE1, testHE1$EXPENDIP)
+  # Baseline accuracy rate is remarkably high, but the precision rate is extremely low, and the
+  # recall rate is lower than acceptable amounts. The model appears to be very good at predicting
+  # the true zero-cost patients, but the precision rate, which is almost the exact compliment of
+  # the accuracy rate, indicates that the model is just predicting most of the observations as
+  # zero-cost without a proper basis for the prediction due to the skewedness of zero-cost to
+  # non-zero observations in the dataset.
+
+  # Use stepAIC to see if model can be improved
+  logit.fit = stepAIC(logit.fit, direction = "both", trace = F)
+  logit.fit$anova
+  # Optimal model achieved via stepAIC:
+  logit.fit = glm(EXPENDIP ~ AGE + GENDER + INSURE + UNEMPLOY + COUNTOP + EXPENDOP +
+                    REGION + PHSTAT + INCOME, data = trainHE1, family = binomial)
+  summary(logit.fit)
+  # AIC reduced from 631.45 to 605.24
+  logitStats(logit.fit, testHE1, testHE1$EXPENDIP)
+  # While the AIC has been reduced, the accuracy rate has only been increased by 0.002. Normally,
+  # this would still be an improvement as having less predictors in the model while maintaining a
+  # similar accuracy rate tells us which predictors actually affect the probabilities. However,
+  # the F1 score, which is a measure based on the precision and recall rates, is the ideal metric
+  # for models where false positives and negatives have a significant impact AND where the data
+  # is heavily imbalanced. Because the F1 score has decreased by 0.03, this model is worse than
+  # the base model using all predictors.
+
+  # Fit the optimal model achieved via stepAIC with two-term interactions
+  logit.fit = glm(EXPENDIP ~ (AGE + GENDER + INSURE + UNEMPLOY + COUNTOP + EXPENDOP +
+                    REGION + PHSTAT + INCOME)^2, data = trainHE1, family = binomial)
+  logit.fit = stepAIC(logit.fit, direction = "both", trace = F)
+  logit.fit$anova
+
+  # Optimal model achieved via stepAIC:
+  logit.fit = glm(EXPENDIP ~ AGE + GENDER + INSURE + UNEMPLOY + COUNTOP + EXPENDOP +
+                    REGION + PHSTAT + INCOME + AGE:GENDER + AGE:INCOME + GENDER:INSURE +
+                    COUNTOP:REGION + COUNTOP:PHSTAT + UNEMPLOY:REGION, data = trainHE1, family = binomial)
+  summary(logit.fit)
+  # AIC reduced from 605.24 to 585.74
+  logitStats(logit.fit, testHE1, testHE1$EXPENDIP)
+  # Fitting two-term interactions to the optimal model achieved via stepAIC further reduces the
+  # accuracy of the model in every respect.
+
+  # Attempt to fit two-term interactions to the base model as it, so far, has the best overall accuracy.
+  logit.fit = glm(EXPENDIP ~ (. -COUNTIP -COLLEGE -HIGHSCH)^2, data = trainHE1, family = binomial)
+  summary(logit.fit)
+  # Aliased interaction terms (107 singularities) causing model to fail. AIC more than doubled to 1434.
+  logitStats(logit.fit, testHE1, testHE1$EXPENDIP)
+  # Worst model so far; false negatives tremendously increased.
+
+  alias(logit.fit)
+  # INDUSCLASS responsible for most of the singularities; instead of repeatedly sorting through summary()
+  # and alias() results (which was done at first), the model is refit without INDUSCLASS so that the resulting
+  # interaction terms don't need to be removed one by one.
+  logit.fit = glm(EXPENDIP ~ (. -COUNTIP -COLLEGE -HIGHSCH -INDUSCLASS)^2, data = trainHE1, family = binomial)
+  # Using alias (multiple times as the results exceed the console capacity, even with max.print set higher),
+  # the following interaction terms have been removed to complete the process of clearing the singularities.
+  logit.fit = update(logit.fit, ~ . -INSURE:MANAGEDCARE -COUNTOP:EXPENDOP -RACE:EDUC -RACE:MARISTAT -RACE:INCOME -RACE:PHSTAT -MARISTAT:PHSTAT)
+  summary(logit.fit)
+  # The AIC has increased by an extreme amount along with the residual deviance. Additionally, all visible
+  # predictors have infintesimal p-values, which indicates a likely failed model with perfect correlations.
+  # Additionally, due to the excessive length of the resulting formula, the model is now incomprehensible
+  # for inference purposes, which is equally as important as the predictive capabilities of the model for
+  # the practical implications of this dataset.
+  logitStats(logit.fit, testHE1, testHE1$EXPENDIP)
+  # Surprisingly, the accuracy of the overall model has only slightly decreased compared to previous models
+  # with the biggest impact being a sizable decrease on the recall rate.
+
+  # Despite the previous failures above, an attempt at using stepAIC was made again with the interaction
+  # terms on the base set of predictors instead of the optimal model achieved via stepAIC. The intent was
+  # to see if the additional interaction terms could provide a marginal improvement in overall accuracy.
+  # However, the process was terminated after 40 as it caused R and RStudio to become unresponsive to the
+  # point that it could not be terminated without force-closing RStudio. The results would have very likely
+  # been worse than what was previously achieved and certainly incomprehensible for inference. The following
+  # two lines are the code that was run. They have been commented out as they should not be run.
+    # logit.fit = glm(EXPENDIP ~ (. -COUNTIP -COLLEGE -HIGHSCH)^2, data = trainHE1, family = binomial)
+    # logit.fit = stepAIC(logit.fit, direction = "both", trace = F)
+
+  # The final attempt at the EXPENDIP models will be without COUNTOP and EXPENDOP to see if there are any
+  # predictors that truly have a correlation to the probabilities of zero-cost and non-zero expenditures
+  # without having information on expenditure history.
+  logit.fit = glm(EXPENDIP ~ . -COUNTIP -COUNTOP -EXPENDOP -COLLEGE -HIGHSCH, data = trainHE1, family = binomial)
+  summary(logit.fit)
+  # AIC has increased from the baseline of 631.45 to 712.02
+  logitStats(logit.fit, testHE1, testHE1$EXPENDIP)
+  # The accuracy rate is indentical to the base model, and the recall rate is only 0.0375 less. The precision
+  # rate has decreased from 0.14 to 0.08, and the F1 score has decreased considerably from 0.212121 to
+  # 0.13333. While the differences are actually rather insignifcant in the confusion matrix, the model is
+  # still worse than the baseline model. However, these results are far better than expected and are actually
+  # very useful as they reflect the situation of having demographic information and a couple of survey questions
+  # without having access to the much more difficult to procure information on previous health expenditures. To
+  # achieve a more precise model, complex case control sampling techniques would need to be implemented on the
+  # dataset to account for the massive imbalance in zero-cost to non-zero observations.
+# END
+
+#####################################################################################################
+
+# BEGIN - Logistic regression on EXPENDOP
+  logit.fit = glm(EXPENDOP ~ . -COUNTOP -COLLEGE -HIGHSCH, data = trainHE1, family = binomial)
+  summary(logit.fit)
+  # Baseline AIC of 1370.5
+  logitStats(logit.fit, testHE1, testHE1$EXPENDOP)
+  # Model accuracy tremendously better than the best EXPENDIP model. The accuracy rate is only 0.77167, but the
+  # F1 score is up to 0.840512. The overall increased accuracy of this model is likely due to the much larger
+  # amount of non-zero observations in EXPENDOP than there are in EXPENDIP, which solves much of the previous
+  # issues of imbalanced sampling. However, there are still large amounts of false positives and negatives
+  # as seen in the confusion matrix, so improving the model would have significant impacts compared to the
+  # improvements sought in the EXPENDIP models.
+
+  # While stepAIC failed to improve the EXPENDIP model, it has a much better chance for EXPENDOP now that
+  # the sampling issues are largely mitigated.
+  logit.fit = stepAIC(logit.fit, direction = "both", trace = F)
+  logit.fit$anova
+  # Optimal model achieved via stepAIC:
+  logit.fit = glm(EXPENDOP ~ ANYLIMIT + GENDER + USC + MANAGEDCARE + FAMSIZE +
+                    COUNTIP + EDUC + MARISTAT + PHSTAT + INDUSCLASS, data = trainHE1, family = binomial)
+  summary(logit.fit)
+  # AIC reduced from 1370.5 to 1354.4
+  logitStats(logit.fit, testHE1, testHE1$EXPENDOP)
+  # Model has very marginally decreased in accuracy (almost identical)  while removing half of the predictors.
+  # Interestingly, AGE and INCOME have been removed from the model, which are known to be the strongest
+  # predictors aside from the COUNTs and EXPENDs.
+
+  # Adding AGE and INCOME back into the model converts two false positives to true positives, but the overall
+  # model accuracy is practically identical due to the large numbers of false negatives and positives. A much
+  # larger decrease is needed in either one of the false predictions.
+  logit.fit = glm(EXPENDOP ~ AGE + INCOME + ANYLIMIT + GENDER + USC + MANAGEDCARE + FAMSIZE +
+                    COUNTIP + EDUC + MARISTAT + PHSTAT + INDUSCLASS, data = trainHE1, family = binomial)
+  logitStats(logit.fit, testHE1, testHE1$EXPENDOP)
+
+  logit.fit = glm(EXPENDOP ~ log10(AGE) + INCOME + ANYLIMIT + GENDER + USC + MANAGEDCARE + FAMSIZE +
+                    COUNTIP + EDUC + MARISTAT + PHSTAT + INDUSCLASS, data = trainHE1, family = binomial)
+  logitStats(logit.fit, testHE1, testHE1$EXPENDOP)
+  # Taking the log of AGE converts 2 false negatives to true negatives. Much larger improvements needed.
+
+  logit.fit = glm(EXPENDOP ~ log10(AGE) + MNHPOOR + INCOME + ANYLIMIT + GENDER + USC + MANAGEDCARE + FAMSIZE +
+                    COUNTIP + EDUC + MARISTAT + PHSTAT + INDUSCLASS, data = trainHE1, family = binomial)
+  logitStats(logit.fit, testHE1, testHE1$EXPENDOP)
+  # Adding MNHPOOR converts one false negative to true negative
+
+  # Due to the statistically insignificant benefits provided by adding AGE, log10(AGE), MNHPOOR, or INCOME
+  # to the model, they have been removed to find the best predictive model using the least amount of
+  # predictors, which has seemingly been determined already by stepAIC. The following model will remove
+  # COUNTIP, which is identical to the factored EXPENDIP in this model, to simulate the situation of not
+  # having access to health expenditure history.
+  logit.fit = glm(EXPENDOP ~ ANYLIMIT + GENDER + USC + MANAGEDCARE + FAMSIZE +
+                    EDUC + MARISTAT + PHSTAT + INDUSCLASS, data = trainHE1, family = binomial)
+  logitStats(logit.fit, testHE1, testHE1$EXPENDOP)
+  # Removing COUNTIP has a negligible effect on the model, which is the ideal outcome.
+
+  # Attempt fitting current optimal model with interaction terms
+  logit.fit = glm(EXPENDOP ~ (ANYLIMIT + GENDER + USC + MANAGEDCARE + FAMSIZE +
+                    EDUC + MARISTAT + PHSTAT + INDUSCLASS)^2, data = trainHE1, family = binomial)
+  logit.fit = stepAIC(logit.fit, direction = "both", trace = F)
+  logit.fit$anova
+
+  # Optimal model achieved via stepAIC with two-term interactions:
+  logit.fit = glm(EXPENDOP ~ ANYLIMIT + GENDER + USC + MANAGEDCARE + FAMSIZE +
+                    EDUC + MARISTAT + PHSTAT + INDUSCLASS + ANYLIMIT:GENDER +
+                    ANYLIMIT:MARISTAT + GENDER:FAMSIZE + GENDER:EDUC + GENDER:MARISTAT +
+                    GENDER:PHSTAT + USC:MARISTAT + USC:PHSTAT + MANAGEDCARE:MARISTAT +
+                    MANAGEDCARE:PHSTAT + FAMSIZE:INDUSCLASS + EDUC:MARISTAT +
+                    MARISTAT:INDUSCLASS, data = trainHE1, family = binomial)
+  summary(logit.fit)
+  logitStats(logit.fit, testHE1, testHE1$EXPENDOP)
+
+  # Removed aliased term
+  logit.fit = update(logit.fit, ~ . -MARISTAT:INDUSCLASS)
+  summary(logit.fit)
+  logitStats(logit.fit, testHE1, testHE1$EXPENDOP)
+  # Marginal improvement. Overall, model worse than simplest optimal model while adding
+  # too many predictors.
+# END
+
+# Conclusions of logistic regression:
+#   Optimal model achieved for EXPENDIP is the baseline model with all predictors for prediction purposes
+#   as it has a higher F1 score, which is the more important metric for this dataset, than the optimal
+#   model achieved via stepAIC, which has eliminated several insignificant predictors and is the second
+#   best predictive model. The best model for inference is the baseline model without COUNTOP and EXPENDOP
+#   included as predictors as it simulates a common situation of not having access to medical history.
+#     Prediction: EXPENDIP ~ . -COUNTIP -COLLEGE -HIGHSCH
+#     Inference:  EXPENDIP ~ . -COUNTIP -COUNTOP -EXPENDOP -COLLEGE -HIGHSCH
+#
+#   Optimal model achieved for EXPENDOP is the model achieved via stepAIC with the additional exclusion of
+#   COUNTIP for both prediction and inference. The model has a high accuracy rate and F1 score while not
+#   relying on access to medical history. There are large amounts of false positives and negatives by count
+#   in the confusion matrix, but several attempts at improving the model have failed; more continous predictors
+#   and survey questions would likely be the only way to improve the model without overfitting.
+#     Prediction: EXPENDOP ~ ANYLIMIT + GENDER + USC + MANAGEDCARE + FAMSIZE + EDUC + MARISTAT + PHSTAT + INDUSCLASS
+#     Inference:  EXPENDOP ~ ANYLIMIT + GENDER + USC + MANAGEDCARE + FAMSIZE + EDUC + MARISTAT + PHSTAT + INDUSCLASS
+
 logit.fit = glm(EXPENDIP ~ . -COUNTIP -COLLEGE -HIGHSCH, data = trainHE1, family = binomial)
-summary(logit.fit)
-prob = predict(logit.fit, newdata = testHE1, type = "response")
-pred = ifelse(prob > 0.5, "Yes", "No")
-table(pred, testHE1$EXPENDIP)
-mean(pred == testHE1$EXPENDIP)
+preds = plogis(predict(logit.fit, newdata = testHE1))
+plotFactors(f.data = testHE1, f.x = list("AGE", "FAMSIZE"), f.y = preds, f.factors = factors, f.type = "smooth", f.size = 1, f.save = T)
 
-logit.fit = stepAIC(logit.fit, direction = "both", trace = F)
-logit.fit$anova
-# Optimal model achieved via stepAIC with AIC reduced from 631.45 to 605.24:
-logit.fit = glm(EXPENDIP ~ AGE + GENDER + INSURE + UNEMPLOY + COUNTOP + EXPENDOP +
-                  REGION + PHSTAT + INCOME, data = trainHE1, family = binomial)
-summary(logit.fit)
-prob = predict(logit.fit, newdata = testHE1, type = "response")
-pred = ifelse(prob > 0.5, "Yes", "No")
-table(pred, testHE1$EXPENDIP)
-mean(pred == testHE1$EXPENDIP)
+#####################################################################################################
 
-logit.fit = glm(EXPENDIP ~ (AGE + GENDER + INSURE + UNEMPLOY + COUNTOP + EXPENDOP +
-                  REGION + PHSTAT + INCOME)^2, data = trainHE1, family = binomial)
-logit.fit = stepAIC(logit.fit, direction = "both", trace = F)
-logit.fit$anova
+# The following sections are failed attempts at methodologies and mistakes made kept for reference and as a
+# reminder to carefully check what could be causing drastic, unexpected, and inexplicable changes in results.
 
-# Optimal model achieved via stepAIC with AIC reduced from 605.24 to :
-logit.fit = glm(EXPENDIP ~ AGE + GENDER + INSURE + UNEMPLOY + COUNTOP + EXPENDOP +
-                  REGION + PHSTAT + INCOME + AGE:GENDER + AGE:INCOME + GENDER:INSURE +
-                  COUNTOP:REGION + COUNTOP:PHSTAT + UNEMPLOY:REGION, data = trainHE1, family = binomial)
-summary(logit.fit)
-prob = predict(logit.fit, newdata = testHE1, type = "response")
-pred = ifelse(prob > 0.5, "Yes", "No")
-table(pred, testHE1$EXPENDIP)
-mean(pred == testHE1$EXPENDIP)
+# The following commented-out section was the result of mistakenly passing EXPENDIP to the logitStats
+# function instead of EXPENDOP beginning with the analysis of the stepAIC function. None of it is
+# accurate after realizing this mistake.
+  # # The model has, surprisingly, changed in drastic ways. The number of true negatives has increased from
+  # # 102 to 147, but the number of true positives has decreased from 361 to 50. The number of false negatives
+  # # has increased from 96 to 403, and the number of false positives has decreased from 41 to 0. The reasons
+  # # for these drastic changes are almost inexplicable. In looking at the differences in predictors, EXPENDIP,
+  # # AGE, and INCOME have all been removed from the model; these predictors are known to be the most important
+  # # predictors based on all previous analysis of the multi-linear and logistic regressions as well as basic
+  # # logic. Accordingly, the stepAIC function seems to be completely infeasible for use for logistic regression
+  # # of this dataset, so manual determination of predictors will be used instead.
+  #
+  # # An attempt will be made without the EXPENDIP and COUNTIP predictors first to simulate the situation of
+  # # not having access to previous health expenditures as done before.
+  # logit.fit = glm(EXPENDOP ~ . -COUNTOP -COUNTIP -EXPENDIP -COLLEGE -HIGHSCH, data = trainHE1, family = binomial)
+  # summary(logit.fit)
+  # # AIC increased from 1370.5 to 1421.2
+  # logitStats(logit.fit, testHE1, testHE1$EXPENDOP)
+  # # The model suffers the same issues detailed above in the stepAIC model. It appears that EXPENDIP and COUNTIP
+  # # have a significant impact on the EXPENDOP model to the point of accounting for most of the model accuracy
+  # # whereas EXPENDOP and COUNTOP had minimal effect on the EXPENDIP model.
+  #
+  # # The next two models will test if removing only one of EXPENDIP or COUNTIP returns different results
+  # logit.fit = glm(EXPENDOP ~ . -COUNTOP -EXPENDIP -COLLEGE -HIGHSCH, data = trainHE1, family = binomial)
+  # summary(logit.fit)
+  # logitStats(logit.fit, testHE1, testHE1$EXPENDOP)
+  #
+  # logit.fit = glm(EXPENDOP ~ . -COUNTOP -COUNTIP -COLLEGE -HIGHSCH, data = trainHE1, family = binomial)
+  # summary(logit.fit)
+  # logitStats(logit.fit, testHE1, testHE1$EXPENDOP)
+  # # Both models are identical to each other as well as the model with EXPENDIP and COUNTIP removed, which is
+  # # an unexpected outcome. This implies that the model sees both EXPENDIP and COUNTIP as containing the same
+  # # information, which means the actual number of inpatient visits has no bearing as it is interpreted as a
+  # # binary indicator identical to the factored EXPENDIP. The interesting and baffling part is then that despite
+  # # both containing the same information, EXPENDIP and COUNTIP must both be in the model for it to be at all
+  # # accurate. Due to the extreme extent to which the model fails without one or both of these predictors
+  # # included, there isn't much inference that can be done about the other predictors. Thus, this model will
+  # # only be used for prediction purposes under the premise that previous health expenditure history is available.
+  #
+  # # As EXPENDIP and COUNTIP are so crucial to the model, adding an interaction term between them may improve
+  # # the model over the baseline.
+  # logit.fit = glm(EXPENDOP ~ . -COUNTOP -COLLEGE -HIGHSCH +EXPENDIP:COUNTIP, data = trainHE1, family = binomial)
+  # summary(logit.fit)
+  # logitStats(logit.fit, testHE1, testHE1$EXPENDOP)
+  # # For some indeterminate reason, adding the EXPNEDIP:COUNTIP interaction term into the model has the same
+  # # adverse effects described above.
 
-conmtx = table(pred, f.y)
-print("Accuracy rate:" + mean(pred == testHE1$EXPENDIP))
-print("Precision rate:" + conmtx["Yes", "Yes"] / conmtx[,"Yes"])
-print("Recall rate:" + mean(pred == testHE1$EXPENDIP));
+  # BEGIN - Failed attempt at using regsubsets of "leaps" package for finding optimal regression model
+    # install.packages("leaps")
+    # library(leaps)
+    #
+    # reg.fit = regsubsets(EXPENDIP ~ . -EXPENDOP -EDUC, data = HE)
+    # reg.sum = summary(reg.fit)
+    #
+    # reg.fit.max = regsubsets(EXPENDIP ~ . -EXPENDOP -EDUC, data = HE, nvmax = 22)
+    # reg.sum.max = summary(reg.fit.max)
+    #
+    # par(mfrow = c(2, 2))
+    # plot(reg.sum$rss, xlab = "Number of Variables", ylab = "RSS", type = "l")
+    # plot(reg.sum$adjr2, xlab = "Number of Variables", ylab = "Adjusted R-Sq", type = "l")
+    # max = which.max(reg.sum$adjr2)
+    # points(max, reg.sum$adjr2[max], col = "red", cex = 2, pch = 20)
+    #
+    # plot(reg.sum.max$rss, xlab = "Number of Variables", ylab = "RSS", type = "l")
+    # plot(reg.sum.max$adjr2, xlab = "Number of Variables", ylab = "Adjusted R-Sq", type = "l")
+    #
+    # plot(reg.fit.max, scale = "r2")
+    # plot(reg.fit.max, scale = "adjr2")
+    # plot(reg.fit.max, scale = "Cp")
+    # plot(reg.fit.max, scale = "bic")
+    #
+    # reg.fit.bwd = regsubsets(EXPENDIP ~ . -EXPENDOP -EDUC, data = HE, nvmax = 22, method = "backward")
+    # summary(reg.fit.bwd)
+  # END
+
+  # pairs(HE, upper.panel = NULL, pch = 19, main = "Scatterplot Matrix of 'HE'", row1attop = F, lower.panel = panel.smooth)
+
+  # BEGIN - Hierarchical Clustering - doesn't work
+    # HE1 = HE[c("AGE", "FAMSIZE", "COUNTIP", "EXPENDIP", "COUNTOP", "EXPENDOP")]
+    # HE1.scl = scale(HE1, center = F)
+    # hclus.comp = hclust(dist(HE1.scl), method = "average")
+    # plot(hclus.comp, main = "Complete Linkage", xlab = "", sub = "", cex = .9)
+  # END
